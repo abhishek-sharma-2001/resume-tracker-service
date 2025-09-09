@@ -2,28 +2,6 @@ let currentPage = 1;
 const limit = 5;
 
 // ----------------------
-// Loader
-// ----------------------
-const adminLoader = document.createElement('div');
-adminLoader.id = 'adminLoader';
-adminLoader.innerText = 'Loading...';
-adminLoader.style.display = 'none';
-adminLoader.style.fontWeight = 'bold';
-adminLoader.style.marginBottom = '10px';
-document.getElementById("adminPanel").prepend(adminLoader);
-
-const userLoader = document.createElement('div');
-userLoader.id = 'userLoader';
-userLoader.innerText = 'Submitting...';
-userLoader.style.display = 'none';
-userLoader.style.fontWeight = 'bold';
-userLoader.style.marginBottom = '10px';
-document.getElementById("userPage").prepend(userLoader);
-
-function showLoader(loader) { loader.style.display = 'block'; }
-function hideLoader(loader) { loader.style.display = 'none'; }
-
-// ----------------------
 // Navigation
 // ----------------------
 document.getElementById("userBtn").addEventListener("click", () => { hideAll(); document.getElementById("userPage").style.display = "block"; });
@@ -35,6 +13,7 @@ function hideAll() {
   document.getElementById("adminLoginPage").style.display = "none";
   document.getElementById("adminPanel").style.display = "none";
 }
+
 function backToLanding() { hideAll(); document.getElementById("landing").style.display = "block"; }
 function logoutAdmin() { hideAll(); document.getElementById("landing").style.display = "block"; }
 
@@ -43,38 +22,18 @@ function logoutAdmin() { hideAll(); document.getElementById("landing").style.dis
 // ----------------------
 document.getElementById("resumeForm").addEventListener("submit", async e => {
   e.preventDefault();
-  const submitBtn = e.target.querySelector("button[type='submit']");
-  submitBtn.disabled = true;
-  showLoader(userLoader);
-
   const payload = {
     name: document.getElementById("name").value,
     email: document.getElementById("email").value,
     resume_link: document.getElementById("resume_link").value,
     query: document.getElementById("query").value
   };
-
-  try {
-    const res = await fetch("/api/submitResume", { 
-      method: "POST", 
-      headers:{'Content-Type':'application/json'}, 
-      body: JSON.stringify(payload) 
-    });
-    const data = await res.json();
-
-    if (data.success) {
-      alert("Submitted successfully!");
-      document.getElementById("resumeForm").reset();
-    } else {
-      alert("Error: " + data.error);
-    }
-  } catch(err) {
-    alert("Failed to submit. Try again.");
-    console.error(err);
-  } finally {
-    hideLoader(userLoader);
-    submitBtn.disabled = false;
-  }
+  const res = await fetch("/api/submitResume", { method: "POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const data = await res.json();
+  if (data.success) { 
+    alert("Submitted successfully!"); 
+    document.getElementById("resumeForm").reset(); 
+  } else alert("Error: "+data.error);
 });
 
 // ----------------------
@@ -84,47 +43,27 @@ document.getElementById("adminLogin").addEventListener("submit", async e => {
   e.preventDefault();
   const username = document.getElementById("adminUser").value;
   const password = document.getElementById("adminPass").value;
-  const res = await fetch("/api/admin", { 
-    method:"POST", 
-    headers:{'Content-Type':'application/json'}, 
-    body: JSON.stringify({ action:'login', username, password }) 
-  });
+  const res = await fetch("/api/admin", { method:"POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'login', username, password }) });
   const data = await res.json();
-  if (data.success) { 
-    hideAll(); 
-    document.getElementById("adminPanel").style.display="block"; 
-    loadResumes(); 
-  } else {
-    alert("Invalid credentials");
-  }
+  if (data.success) { hideAll(); document.getElementById("adminPanel").style.display="block"; loadResumes(); }
+  else alert("Invalid credentials");
 });
 
 // ----------------------
 // Load resumes (admin) with loader
 // ----------------------
 async function loadResumes(page=1){
-  showLoader(adminLoader);
-  try {
-    const res = await fetch("/api/admin", { 
-      method:"POST", 
-      headers:{'Content-Type':'application/json'}, 
-      body: JSON.stringify({ action:'getResumes', page, limit }) 
-    });
-    const data = await res.json();
-    displayResumes(data.resumes);
-    document.getElementById("pageInfo").innerText=`Page ${page}`;
-    currentPage=page;
-  } catch(err) {
-    alert("Failed to load resumes");
-    console.error(err);
-  } finally {
-    hideLoader(adminLoader);
-  }
+  const tbody = document.getElementById("resumeTableBody");
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Loading...</td></tr>`;
+  
+  const res = await fetch("/api/admin", { method:"POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'getResumes', page, limit }) });
+  const data = await res.json();
+  
+  displayResumes(data.resumes || []);
+  document.getElementById("pageInfo").innerText=`Page ${page}`;
+  currentPage = page;
 }
 
-// ----------------------
-// Display resumes
-// ----------------------
 function displayResumes(resumes){
   const tbody = document.getElementById("resumeTableBody");
   tbody.innerHTML="";
@@ -134,11 +73,10 @@ function displayResumes(resumes){
       <td>${r.name}</td>
       <td>${r.email}</td>
       <td><a href="${r.resume_link}" target="_blank">View Resume</a></td>
+      <td>${r.query || '-'}</td>
       <td>${r.status}</td>
       <td>
-        ${r.status==='pending' 
-          ? `<button onclick="updateStatus(${r.id},'complete')">✅ Complete</button>` 
-          : `<button onclick="updateStatus(${r.id},'pending')">🔄 Undo</button>`}
+        ${r.status==='pending'?`<button onclick="toggleStatus(${r.id},'complete',this)">✅ Complete</button>`:`<button onclick="toggleStatus(${r.id},'pending',this)">🔄 Undo</button>`}
       </td>
     `;
     tbody.appendChild(tr);
@@ -146,41 +84,28 @@ function displayResumes(resumes){
 }
 
 // ----------------------
-// Update status (Complete / Undo) with optimistic UI
+// Toggle status without reloading
 // ----------------------
-async function updateStatus(id, newStatus){
-  const row = document.querySelector(`#resumeTableBody tr td button[onclick*="${id}"]`)?.parentElement.parentElement;
-  if(!row) return;
-
-  const statusCell = row.children[3];
-  const button = row.querySelector('button');
-
-  const oldStatus = statusCell.innerText;
-
-  // Optimistic update
-  statusCell.innerText = newStatus;
-  button.innerText = newStatus === 'pending' ? '✅ Complete' : '🔄 Undo';
-  button.disabled = true;
-  showLoader(adminLoader);
+async function toggleStatus(id, status, btn){
+  const oldText = btn.innerText;
+  btn.innerText = '⏳';
+  btn.disabled = true;
 
   try {
-    const res = await fetch("/api/admin", { 
-      method:"POST", 
-      headers:{'Content-Type':'application/json'}, 
-      body: JSON.stringify({ action:'updateStatus', id, status:newStatus }) 
-    });
+    const res = await fetch("/api/admin", { method:"POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'updateStatus', id, status }) });
     const data = await res.json();
-    if(!data.success) throw new Error('Update failed');
-  } catch (err) {
-    // Revert on failure
-    statusCell.innerText = oldStatus;
-    button.innerText = oldStatus === 'pending' ? '✅ Complete' : '🔄 Undo';
-    alert('Failed to update status. Try again.');
-    console.error(err);
-  } finally {
-    button.disabled = false;
-    hideLoader(adminLoader);
+    if (data.success){
+      btn.innerText = status==='complete' ? '🔄 Undo' : '✅ Complete';
+      btn.setAttribute('onclick', `toggleStatus(${id},'${status==='complete'?'pending':'complete'}',this)`);
+    } else {
+      alert("Failed to update");
+      btn.innerText = oldText;
+    }
+  } catch (e) {
+    alert("Error: "+e.message);
+    btn.innerText = oldText;
   }
+  btn.disabled = false;
 }
 
 // ----------------------
