@@ -1,7 +1,3 @@
-Perfect 👍 I’ll extend the **README** with the Supabase table schema so anyone can set it up quickly.
-
-Here’s the **final `README.md`:**
-
 ---
 
 ````markdown
@@ -117,10 +113,3 @@ Your app will be available at [http://localhost:3000](http://localhost:3000)
 * **Admin**: Click "Login as Admin", log in with credentials, view resumes, update statuses.
 
 ---
-
-```
-
----
-
-👉 Do you also want me to add a **screenshot preview section** in the README (landing page, user form, admin panel) so it looks polished when you publish on GitHub?
-```
