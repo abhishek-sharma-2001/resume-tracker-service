@@ -105,7 +105,7 @@ Your app will be available at [http://localhost:3000](http://localhost:3000)
    Vercel will build and provide you with a live URL.
 
 ---
-
+---
 ## Usage
 
 * Open the site.
