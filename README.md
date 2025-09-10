@@ -1,4 +1,4 @@
-````markdown
+
 # Resume Tracker Service
 
 A simple full-stack app to manage resumes.  
